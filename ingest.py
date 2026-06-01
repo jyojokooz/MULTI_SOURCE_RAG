@@ -5,54 +5,52 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 
-# 1. Load API keys from the .env file
 load_dotenv()
 
-# Verify Pinecone API key is loaded
 if not os.getenv("PINECONE_API_KEY"):
     raise ValueError("PINECONE_API_KEY not found. Please check your .env file.")
 
-def process_and_upload_pdf():
-    print("--- Starting the Ingestion Process ---")
+def process_multiple_pdfs():
+    print("--- Starting the Multi-Book Ingestion Process ---")
     
-    # 2. Load the large PDF
-    pdf_path = "textbook.pdf" # Make sure this matches your file name!
-    print(f"Step 1: Loading '{pdf_path}'...")
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
-    print(f"Success! Loaded {len(documents)} pages from the PDF.")
+    # Target the folder where your 20 books are
+    folder_path = "books"
+    
+    # Get a list of all PDF files in that folder
+    pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
+    print(f"Found {len(pdf_files)} textbooks to process!\n")
 
-    # 3. Split the text into manageable chunks
-    # We split into 1000-character chunks with a 200-character overlap 
-    # to ensure sentences aren't cut in half and context is preserved.
-    print("\nStep 2: Splitting text into smaller chunks...")
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    index_name = "textbook-index"
+    
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
         length_function=len
     )
-    chunks = text_splitter.split_documents(documents)
-    print(f"Success! Split the document into {len(chunks)} smaller chunks.")
 
-    # 4. Initialize HuggingFace Embeddings (100% Free)
-    # This model outputs vectors with exactly 384 dimensions (which matches our Pinecone index)
-    print("\nStep 3: Loading Embedding Model...")
-    print("(If this is your first time, it may take a minute to download the free model to your PC)")
-    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-
-    # 5. Upload permanently to Pinecone
-    index_name = "textbook-index" # Make sure this matches the index name you created in Pinecone!
-    print(f"\nStep 4: Uploading vectors to Pinecone cloud index '{index_name}'...")
-    print("WARNING: For a 1000-page PDF, this may take 5 to 15 minutes. Please let it run...")
-    
-    PineconeVectorStore.from_documents(
-        documents=chunks, 
-        embedding=embeddings, 
-        index_name=index_name
-    )
-    
-    print("\nSUCCESS! Your massive textbook has been permanently saved to the Pinecone cloud!")
-    print("You NEVER have to run this script again for this textbook.")
+    # Loop through each book one by one so we don't crash your computer's RAM
+    for file_name in pdf_files:
+        pdf_path = os.path.join(folder_path, file_name)
+        print(f"📚 Loading '{file_name}'...")
+        
+        # 1. Load this specific book
+        loader = PyPDFLoader(pdf_path)
+        documents = loader.load()
+        
+        # 2. Split this book
+        chunks = text_splitter.split_documents(documents)
+        print(f"   -> Split into {len(chunks)} chunks. Uploading to Pinecone...")
+        
+        # 3. Upload this book to the cloud
+        PineconeVectorStore.from_documents(
+            documents=chunks, 
+            embedding=embeddings, 
+            index_name=index_name
+        )
+        print(f"   -> Successfully saved '{file_name}' to cloud!\n")
+        
+    print("SUCCESS! All textbooks have been uploaded to Pinecone.")
 
 if __name__ == "__main__":
-    process_and_upload_pdf()
+    process_multiple_pdfs()

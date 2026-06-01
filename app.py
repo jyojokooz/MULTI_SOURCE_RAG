@@ -12,9 +12,9 @@ from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()
 
 # 2. Setup Streamlit Page (The UI)
-st.set_page_config(page_title="RAG Textbook Assistant", page_icon="📚")
-st.title("📚 RAG Textbook Assistant")
-st.markdown("Ask me any question, and I will search the textbook to find the answer!")
+st.set_page_config(page_title="RAG Multi-Textbook Assistant", page_icon="📚")
+st.title("📚 RAG Multi-Textbook Assistant")
+st.markdown("Ask me any question, and I will search across all your textbooks to find the answer!")
 
 # 3. Cache the heavy AI models so the app doesn't slow down
 @st.cache_resource
@@ -27,17 +27,17 @@ def load_vectorstore():
 
 @st.cache_resource
 def load_llm():
-    # Connect to the free Llama-3.1 model via Groq (UPDATED MODEL NAME HERE)
+    # Connect to the free Llama-3.1 model via Groq
     return ChatGroq(model_name="llama-3.1-8b-instant", temperature=0)
 
 vectorstore = load_vectorstore()
 llm = load_llm()
 
 # 4. Setup the AI Brain (Prompt + Retrieval Chain)
-# We strictly tell the AI to ONLY use the textbook context.
+# We strictly tell the AI to ONLY use the provided context.
 prompt = ChatPromptTemplate.from_template("""
-You are a highly intelligent and professional AI assistant. Use the following retrieved context from the textbook to answer the user's question. 
-If the answer is not contained in the context, just say "I don't know based on the textbook provided." Do not make up information.
+You are a highly intelligent and professional AI assistant. Use the following retrieved context from the textbooks to answer the user's question. 
+If the answer is not contained in the context, just say "I don't know based on the textbooks provided." Do not make up information.
 
 Context:
 {context}
@@ -49,8 +49,9 @@ Answer:
 """)
 
 document_chain = create_stuff_documents_chain(llm, prompt)
-# Search the database for the top 3 most relevant paragraphs
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) 
+
+# Search the database for the top 5 most relevant paragraphs
+retriever = vectorstore.as_retriever(search_kwargs={"k": 5}) 
 rag_chain = create_retrieval_chain(retriever, document_chain)
 
 # 5. Build the Chat History UI
@@ -63,7 +64,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # 6. React to the User's Question
-if user_input := st.chat_input("Ask a question about the textbook..."):
+if user_input := st.chat_input("Ask a question about your textbooks..."):
     # Show what the user typed
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -71,18 +72,21 @@ if user_input := st.chat_input("Ask a question about the textbook..."):
 
     # Show a loading spinner while AI thinks
     with st.chat_message("assistant"):
-        with st.spinner("Searching the 482-page textbook..."):
+        with st.spinner("Searching across all textbooks..."):
             # Pass the question to our RAG chain
             response = rag_chain.invoke({"input": user_input})
             answer = response["answer"]
             
-            # PRO FEATURE: Source Citations
-            # We extract the page numbers that the AI used to build the answer
+            # PRO FEATURE: Source Citations (UPDATED FOR MULTIPLE BOOKS)
             sources = []
             for doc in response["context"]:
-                if 'page' in doc.metadata:
-                    # We add +1 because PyPDF counts page 0 as page 1
-                    sources.append(f"Page {doc.metadata['page'] + 1}")
+                if 'page' in doc.metadata and 'source' in doc.metadata:
+                    # Extract just the file name (e.g., 'Biology_101.pdf')
+                    book_name = os.path.basename(doc.metadata['source'])
+                    # Extract page number
+                    page_num = doc.metadata['page'] + 1
+                    # Combine them
+                    sources.append(f"**{book_name}** (Page {page_num})")
             
             # If we found sources, add them to the bottom of the answer
             if sources:
