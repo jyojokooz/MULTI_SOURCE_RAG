@@ -14,7 +14,7 @@ load_dotenv()
 # 2. Setup Streamlit Page (The UI)
 st.set_page_config(page_title="NanoPhysics AI Assistant", page_icon="🔬")
 st.title("🔬 NanoPhysics & Nanoelectronics AI Assistant")
-st.markdown("Ask me any question, and I will search across your nanophysics textbooks to find a detailed, step-by-step answer!")
+st.markdown("Ask me any question, and I will search across your nanophysics textbooks to write a highly detailed, essay-style answer!")
 
 # 3. Cache the heavy AI models so the app doesn't slow down
 @st.cache_resource
@@ -27,21 +27,26 @@ def load_vectorstore():
 
 @st.cache_resource
 def load_llm():
-    # Connect to Llama-3.1 via Groq (Temperature set to 0.2 for better explanations)
-    return ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.2)
+    # Upgraded to a 70B parameter model for deep reasoning and detailed essay generation
+    return ChatGroq(
+        model_name="llama-3.3-70b-versatile", 
+        temperature=0.3, # Slightly increased for better creative elaboration
+        max_tokens=3000  # Ensures the AI has enough room to write long essays
+    )
 
 vectorstore = load_vectorstore()
 llm = load_llm()
 
-# 4. Setup the AI Brain (Optimized for detailed Physics explanations)
+# 4. Setup the AI Brain (Optimized for long-form Academic Essays)
 prompt = ChatPromptTemplate.from_template("""
 You are an expert, highly detailed, and professional Physics Professor and academic tutor. 
-Your goal is to provide comprehensive, thorough, and step-by-step explanations to the user's question using the retrieved context from the textbooks.
+Your goal is to write a comprehensive, long-form academic essay to answer the user's question, using the retrieved textbook context as your primary foundation.
 
 Guidelines for your response:
-1. **Be Highly Detailed:** Do not give short or brief answers. Explain the underlying physics principles, concepts, formulas, and derivations if they are present in the context.
-2. **Logical Structure:** Structure your answer cleanly. Use bold headings, bullet points, and numbered lists to break down the explanation "question-wise" or step-by-step.
-3. **Accuracy:** Ground your explanation strictly in the retrieved context. If some specific details are completely missing, explain what you *can* find in the context thoroughly, rather than giving up.
+1. **Essay Format & Length:** Write in a detailed, exhaustive, and expansive format. Your response should read like a thorough textbook chapter or academic essay. Do NOT give brief or basic summaries. 
+2. **Elaborate Context:** Use the retrieved context as your factual anchor. However, you are highly encouraged to use your internal expert physics knowledge to deeply explain, elaborate on, and contextualize the formulas, principles, and derivations found in the context.
+3. **Logical Structure:** Use bold headings, bullet points, and numbered lists where appropriate, but ensure there are thick, detailed paragraphs of explanatory text connecting the ideas.
+4. **No Dead Ends:** If the context only has partial information, thoroughly explain what you do have, and naturally fill in the physics gaps to ensure the user gets a complete conceptual understanding.
 
 Context:
 {context}
@@ -49,7 +54,7 @@ Context:
 Question: 
 {input}
 
-Answer:
+Detailed Essay Answer:
 """)
 
 document_chain = create_stuff_documents_chain(llm, prompt)
@@ -76,7 +81,7 @@ if user_input := st.chat_input("Ask a physics question..."):
 
     # Show a loading spinner while AI thinks
     with st.chat_message("assistant"):
-        with st.spinner("Searching and analyzing nanophysics textbooks..."):
+        with st.spinner("Writing a detailed academic essay based on your textbooks..."):
             # Pass the question to our RAG chain
             response = rag_chain.invoke({"input": user_input})
             answer = response["answer"]
@@ -95,7 +100,7 @@ if user_input := st.chat_input("Ask a physics question..."):
             # If we found sources, add them to the bottom of the answer
             if sources:
                 unique_sources = list(set(sources))
-                answer += f"\n\n**Sources Used:** {', '.join(unique_sources)}"
+                answer += f"\n\n---\n**Sources Used:** {', '.join(unique_sources)}"
             
             st.markdown(answer)
     
