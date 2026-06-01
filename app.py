@@ -12,18 +12,16 @@ from langchain_core.prompts import ChatPromptTemplate
 # 1. Load API Keys
 load_dotenv()
 
-# --- NEW: Smart History Management ---
+# --- Smart History Management ---
 HISTORY_FILE = "chat_history.json"
 
 def load_history():
-    """Loads all previously asked questions and answers from the file."""
+    """Loads all previously asked questions and answers from the file securely."""
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                
-                # NEW: Only load items that actually have the "question" and "answer" keys. 
-                # This ignores any old or corrupted formats!
+                # Safely only load items that have the correct format to prevent crashes
                 valid_history = [item for item in data if "question" in item and "answer" in item]
                 return valid_history
         except Exception:
@@ -39,7 +37,7 @@ def save_history(history_list):
 # 2. Setup Streamlit Page (The UI)
 st.set_page_config(page_title="NanoPhysics AI Assistant", page_icon="🔬", layout="wide")
 st.title("🔬 NanoPhysics & Nanoelectronics AI Assistant")
-st.markdown("Ask me any question, and I will search across your nanophysics textbooks to write a highly detailed, essay-style answer!")
+st.markdown("Ask me any question, and I will search across your nanophysics textbooks to write a **massive, highly detailed academic essay!**")
 
 # 3. Cache the heavy AI models
 @st.cache_resource
@@ -50,25 +48,26 @@ def load_vectorstore():
 
 @st.cache_resource
 def load_llm():
+    # INCREASED TEMPERATURE AND TOKENS FOR MASSIVE ESSAYS
     return ChatGroq(
         model_name="llama-3.3-70b-versatile", 
-        temperature=0.3, 
-        max_tokens=3000
+        temperature=0.5,  # Increased from 0.3 so the AI elaborates much more
+        max_tokens=4000   # Increased to ensure giant essays don't get cut off
     )
 
 vectorstore = load_vectorstore()
 llm = load_llm()
 
-# 4. Setup the AI Brain
+# 4. Setup the AI Brain (SUPERCHARGED PROMPT FOR MAXIMUM ESSAY SIZE)
 prompt = ChatPromptTemplate.from_template("""
-You are an expert, highly detailed, and professional Physics Professor and academic tutor. 
-Your goal is to write a comprehensive, long-form academic essay to answer the user's question, using the retrieved textbook context as your primary foundation.
+You are an expert, highly verbose, and professional Physics Professor. 
+Your goal is to write a MASSIVE, comprehensive, long-form academic essay to answer the user's question, using the retrieved textbook context as your primary foundation.
 
 Guidelines for your response:
-1. **Essay Format & Length:** Write in a detailed, exhaustive, and expansive format. Your response should read like a thorough textbook chapter or academic essay. Do NOT give brief or basic summaries. 
-2. **Elaborate Context:** Use the retrieved context as your factual anchor. However, you are highly encouraged to use your internal expert physics knowledge to deeply explain, elaborate on, and contextualize the formulas, principles, and derivations found in the context.
-3. **Logical Structure:** Use bold headings, bullet points, and numbered lists where appropriate, but ensure there are thick, detailed paragraphs of explanatory text connecting the ideas.
-4. **No Dead Ends:** If the context only has partial information, thoroughly explain what you do have, and naturally fill in the physics gaps to ensure the user gets a complete conceptual understanding.
+1. **Massive Essay Length:** Your response MUST be extremely long, detailed, and expansive (minimum of 800 to 1000+ words). Write multiple thick, exhaustive paragraphs. Under NO circumstances should you provide a short, brief, or basic summary. Act as if you are writing a full chapter for a textbook.
+2. **Elaborate Deeply:** Use the retrieved context as your factual anchor. However, you MUST use your internal expert physics knowledge to deeply explain, expand, and contextualize EVERY formula, principle, and derivation mentioned. Assume the reader needs step-by-step hand-holding through the complex physics.
+3. **Logical Structure:** Use bold headings, bullet points, and numbered lists where appropriate, but ensure they are padded with massive, detailed paragraphs of explanatory text connecting the ideas.
+4. **No Dead Ends:** If the context only has partial information, thoroughly explain what you do have, and then naturally fill in the physics gaps using your expert knowledge to ensure a complete, dissertation-length conceptual understanding.
 
 Context:
 {context}
@@ -76,27 +75,25 @@ Context:
 Question: 
 {input}
 
-Detailed Essay Answer:
+Massive Detailed Essay Answer:
 """)
 
 document_chain = create_stuff_documents_chain(llm, prompt)
+# Search the database for the top 8 most relevant paragraphs
 retriever = vectorstore.as_retriever(search_kwargs={"k": 8}) 
 rag_chain = create_retrieval_chain(retriever, document_chain)
 
 # 5. Initialize State Variables
 if "history" not in st.session_state:
-    # 'history' holds ALL saved Q&As from the database
     st.session_state.history = load_history()
 
 if "current_messages" not in st.session_state:
-    # 'current_messages' only holds what is currently visible on the screen
     st.session_state.current_messages = []
 
-# --- NEW: ChatGPT-Style Sidebar ---
+# --- ChatGPT-Style Sidebar ---
 with st.sidebar:
     st.header("📚 Chat History")
     
-    # Button to clear screen for a new question
     if st.button("➕ New Chat", use_container_width=True):
         st.session_state.current_messages = []
         st.rerun()
@@ -104,13 +101,10 @@ with st.sidebar:
     st.divider()
     st.markdown("**Previous Questions:**")
     
-    # Loop through history backwards (so newest questions are at the top)
     for idx, item in enumerate(reversed(st.session_state.history)):
         q_text = item["question"]
-        # Shorten the question so it fits nicely on the sidebar button
         btn_text = (q_text[:35] + "...") if len(q_text) > 35 else q_text
         
-        # If the user clicks a history button, load ONLY that Q&A onto the screen!
         if st.button(f"📝 {btn_text}", key=f"hist_{idx}", help=q_text):
             st.session_state.current_messages = [
                 {"role": "user", "content": item["question"]},
@@ -127,12 +121,10 @@ for message in st.session_state.current_messages:
 # 7. React to the User's Question
 if user_input := st.chat_input("Ask a physics question..."):
     
-    # --- SMART SEARCH: Check if this question was already asked! ---
-    # We check if the exact typed question exists in our history
+    # SMART SEARCH: Check if this question was already asked!
     existing_item = next((item for item in st.session_state.history if item["question"].strip().lower() == user_input.strip().lower()), None)
     
     if existing_item:
-        # If it was asked before, instantly show the saved answer! (Saves time & API usage)
         st.session_state.current_messages = [
             {"role": "user", "content": existing_item["question"]},
             {"role": "assistant", "content": existing_item["answer"]}
@@ -140,15 +132,12 @@ if user_input := st.chat_input("Ask a physics question..."):
         st.rerun()
         
     else:
-        # It's a brand NEW question. 
-        # Clear the screen and show the user's new question
         st.session_state.current_messages = [{"role": "user", "content": user_input}]
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # Show a loading spinner while AI writes the new essay
         with st.chat_message("assistant"):
-            with st.spinner("Writing a detailed academic essay based on your textbooks..."):
+            with st.spinner("Writing a massive academic essay based on your textbooks... (this may take a few seconds)"):
                 response = rag_chain.invoke({"input": user_input})
                 answer = response["answer"]
                 
@@ -175,5 +164,5 @@ if user_input := st.chat_input("Ask a physics question..."):
             "answer": answer
         })
         
-        # 3. Permanently save to the JSON file so everyone can see it
+        # 3. Permanently save to the JSON file
         save_history(st.session_state.history)
