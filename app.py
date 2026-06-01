@@ -14,7 +14,7 @@ load_dotenv()
 # 2. Setup Streamlit Page (The UI)
 st.set_page_config(page_title="NanoPhysics AI Assistant", page_icon="🔬")
 st.title("🔬 NanoPhysics & Nanoelectronics AI Assistant")
-st.markdown("Ask me any question, and I will search across your nanophysics textbooks to find the answer!")
+st.markdown("Ask me any question, and I will search across your nanophysics textbooks to find a detailed, step-by-step answer!")
 
 # 3. Cache the heavy AI models so the app doesn't slow down
 @st.cache_resource
@@ -27,17 +27,21 @@ def load_vectorstore():
 
 @st.cache_resource
 def load_llm():
-    # Connect to the free Llama-3.1 model via Groq
-    return ChatGroq(model_name="llama-3.1-8b-instant", temperature=0)
+    # Connect to Llama-3.1 via Groq (Temperature set to 0.2 for better explanations)
+    return ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.2)
 
 vectorstore = load_vectorstore()
 llm = load_llm()
 
-# 4. Setup the AI Brain (Prompt + Retrieval Chain)
-# We strictly tell the AI to ONLY use the provided context.
+# 4. Setup the AI Brain (Optimized for detailed Physics explanations)
 prompt = ChatPromptTemplate.from_template("""
-You are a highly intelligent and professional AI assistant. Use the following retrieved context from the textbooks to answer the user's question. 
-If the answer is not contained in the context, just say "I don't know based on the textbooks provided." Do not make up information.
+You are an expert, highly detailed, and professional Physics Professor and academic tutor. 
+Your goal is to provide comprehensive, thorough, and step-by-step explanations to the user's question using the retrieved context from the textbooks.
+
+Guidelines for your response:
+1. **Be Highly Detailed:** Do not give short or brief answers. Explain the underlying physics principles, concepts, formulas, and derivations if they are present in the context.
+2. **Logical Structure:** Structure your answer cleanly. Use bold headings, bullet points, and numbered lists to break down the explanation "question-wise" or step-by-step.
+3. **Accuracy:** Ground your explanation strictly in the retrieved context. If some specific details are completely missing, explain what you *can* find in the context thoroughly, rather than giving up.
 
 Context:
 {context}
@@ -50,8 +54,8 @@ Answer:
 
 document_chain = create_stuff_documents_chain(llm, prompt)
 
-# Search the database for the top 5 most relevant paragraphs
-retriever = vectorstore.as_retriever(search_kwargs={"k": 5}) 
+# Search the database for the top 8 most relevant paragraphs (Increased for deeper context)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 8}) 
 rag_chain = create_retrieval_chain(retriever, document_chain)
 
 # 5. Build the Chat History UI
@@ -64,7 +68,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # 6. React to the User's Question
-if user_input := st.chat_input("Ask a question about your textbooks..."):
+if user_input := st.chat_input("Ask a physics question..."):
     # Show what the user typed
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -72,7 +76,7 @@ if user_input := st.chat_input("Ask a question about your textbooks..."):
 
     # Show a loading spinner while AI thinks
     with st.chat_message("assistant"):
-        with st.spinner("Searching across all textbooks..."):
+        with st.spinner("Searching and analyzing nanophysics textbooks..."):
             # Pass the question to our RAG chain
             response = rag_chain.invoke({"input": user_input})
             answer = response["answer"]
