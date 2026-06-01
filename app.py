@@ -12,9 +12,9 @@ from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()
 
 # 2. Setup Streamlit Page (The UI)
-st.set_page_config(page_title="RAG Multi-Textbook Assistant", page_icon="📚")
-st.title("📚 RAG Multi-Textbook Assistant")
-st.markdown("Ask me any question, and I will search across all your textbooks to find the answer!")
+st.set_page_config(page_title="NanoPhysics AI Assistant", page_icon="🔬")
+st.title("🔬 NanoPhysics & Nanoelectronics AI Assistant")
+st.markdown("Ask me any question, and I will search across your nanophysics textbooks to find the answer!")
 
 # 3. Cache the heavy AI models so the app doesn't slow down
 @st.cache_resource
